@@ -4,9 +4,13 @@ export interface StorageOptions {
   tableName: string;
 }
 
-function invariant(condition: unknown, message: string): asserts condition {
+function invariant<E extends new (message: string) => Error>(
+  condition: unknown,
+  message: string,
+  ErrorType?: E
+): asserts condition {
   if (!condition) {
-    throw new Error(message);
+    throw new (ErrorType ?? Error)(message);
   }
 }
 
@@ -47,26 +51,31 @@ export const defaultOptions: StorageOptions = {
 export function createInstance(
   options: Partial<StorageOptions> = defaultOptions
 ) {
-  let db: IDBDatabase;
+  let db: IDBDatabase | undefined;
 
   const config = Object.assign({}, defaultOptions, options);
   invariant(
     typeof config.databaseName === "string" && config.databaseName.length > 0,
-    "databaseName must be a string"
+    "databaseName must be a string",
+    TypeError
   );
   invariant(
     typeof config.databaseVersion === "number" && config.databaseVersion > 0,
-    "databaseVersion must be a number"
+    "databaseVersion must be a number",
+    TypeError
   );
   invariant(
     typeof config.tableName === "string" && config.tableName.length > 0,
-    "tableName must be a string"
+    "tableName must be a string",
+    TypeError
   );
 
   async function setItem<T>(key: string, value: T) {
     db = db ?? (await connect(config));
 
     return new Promise<void>((resolve, reject) => {
+      invariant(db, "Database connection was closed");
+
       const transaction = db.transaction([config.tableName], "readwrite");
 
       transaction.addEventListener("error", () => {
@@ -91,6 +100,8 @@ export function createInstance(
     db = db ?? (await connect(config));
 
     return new Promise<T>((resolve, reject) => {
+      invariant(db, "Database connection was closed");
+
       const transaction = db.transaction([config.tableName], "readonly");
 
       transaction.addEventListener("error", () => {
@@ -114,22 +125,18 @@ export function createInstance(
     db = db ?? (await connect(config));
 
     return new Promise<void>((resolve, reject) => {
+      invariant(db, "Database connection was closed");
+
       const transaction = db.transaction([config.tableName], "readwrite");
-
-      transaction.addEventListener("error", () => {
-        reject(new Error(`Transaction failed`));
-      });
-
-      transaction.addEventListener("complete", () => {
-        resolve();
-      });
-
       const store = transaction.objectStore(config.tableName);
-
       const request = store.clear();
 
       request.addEventListener("error", () => {
-        reject(new Error(`Failed to clear`));
+        reject(new Error(`Failed to clear store`));
+      });
+
+      request.addEventListener("success", () => {
+        resolve();
       });
     });
   }
@@ -138,6 +145,8 @@ export function createInstance(
     db = db ?? (await connect(config));
 
     return new Promise<void>((resolve, reject) => {
+      invariant(db, "Database connection was closed");
+
       const transaction = db.transaction([config.tableName], "readwrite");
 
       transaction.addEventListener("error", () => {
@@ -162,6 +171,8 @@ export function createInstance(
     db = db ?? (await connect(config));
 
     return new Promise<IDBValidKey[]>((resolve, reject) => {
+      invariant(db, "Database connection was closed");
+
       const transaction = db.transaction([config.tableName], "readonly");
 
       transaction.addEventListener("error", () => {
