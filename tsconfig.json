@@ -1,0 +1,17 @@
+{
+  "extends": [
+    "@tsconfig/recommended/tsconfig",
+    "@tsconfig/strictest/tsconfig",
+    "@tsconfig/node18/tsconfig"
+  ],
+  "include": [
+    "src/**/*"
+  ],
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ]
+  }
+}
