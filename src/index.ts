@@ -79,7 +79,7 @@ export function createInstance(
       const transaction = db.transaction([config.tableName], "readwrite");
 
       transaction.addEventListener("error", () => {
-        reject(new Error(`Transaction failed for key '${key}'`));
+        reject(transaction.error);
       });
 
       transaction.addEventListener("complete", () => {
@@ -91,7 +91,7 @@ export function createInstance(
       const request = store.put(value, key);
 
       request.addEventListener("error", () => {
-        reject(new Error(`Failed to put item for key '${key}'`));
+        reject(request.error);
       });
     });
   }
@@ -105,14 +105,14 @@ export function createInstance(
       const transaction = db.transaction([config.tableName], "readonly");
 
       transaction.addEventListener("error", () => {
-        reject(new Error(`Transaction failed for key '${key}'`));
+        reject(transaction.error);
       });
 
       const store = transaction.objectStore(config.tableName);
       const request = store.get(key);
 
       request.addEventListener("error", () => {
-        reject(new Error(`Failed to get item for key '${key}'`));
+        reject(request.error);
       });
 
       request.addEventListener("success", () => {
@@ -132,7 +132,7 @@ export function createInstance(
       const request = store.clear();
 
       request.addEventListener("error", () => {
-        reject(new Error(`Failed to clear store`));
+        reject(request.error);
       });
 
       request.addEventListener("success", () => {
@@ -150,7 +150,7 @@ export function createInstance(
       const transaction = db.transaction([config.tableName], "readwrite");
 
       transaction.addEventListener("error", () => {
-        reject(new Error(`Transaction failed for key '${key}'`));
+        reject(transaction.error);
       });
 
       transaction.addEventListener("complete", () => {
@@ -162,7 +162,7 @@ export function createInstance(
       const request = store.delete(key);
 
       request.addEventListener("error", () => {
-        reject(new Error(`Failed to delete item for key '${key}'`));
+        reject(request.error);
       });
     });
   }
@@ -176,14 +176,14 @@ export function createInstance(
       const transaction = db.transaction([config.tableName], "readonly");
 
       transaction.addEventListener("error", () => {
-        reject(new Error(`Transaction failed`));
+        reject(transaction.error);
       });
 
       const store = transaction.objectStore(config.tableName);
       const request = store.getAllKeys();
 
       request.addEventListener("error", () => {
-        reject(new Error(`Failed to get keys`));
+        reject(request.error);
       });
 
       request.addEventListener("success", () => {
@@ -223,12 +223,46 @@ export function createInstance(
     };
   }
 
+  async function size() {
+    db = db ?? (await connect(config));
+
+    return new Promise<number>((resolve, reject) => {
+      invariant(db, "Database connection was closed");
+
+      const transaction = db.transaction([config.tableName], "readonly");
+
+      transaction.addEventListener("error", () => {
+        reject(transaction.error);
+      });
+
+      const store = transaction.objectStore(config.tableName);
+      const request = store.count();
+
+      request.addEventListener("error", () => {
+        reject(request.error);
+      });
+
+      request.addEventListener("success", () => {
+        resolve(request.result);
+      });
+    });
+  }
+
+  function close() {
+    if (db) {
+      db.close();
+      db = undefined;
+    }
+  }
+
   return Object.freeze({
     setItem,
     getItem,
     removeItem,
     clear,
     keys,
+    close,
+    size,
     [Symbol.asyncIterator]: asyncIterator,
   });
 }
